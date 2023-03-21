@@ -1,48 +1,78 @@
-from tkinter import *
+import sys
+from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel
+from PyQt6.QtCore import Qt, QPoint
+from PyQt6.QtGui import QPixmap, QPainter
 
-root = Tk()
-canvas = Canvas(root, width=800, height=600)
 
-countQ = 0
+class MyApp(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.label = None
+        self.states = []
+        self.window_width, self.window_height = 800, 600
+        self.setMinimumSize(self.window_width, self.window_height)
 
-x = 0
-y = 0
-click = False
-line = canvas.create_line(x,y,x,y)
+        layout = QVBoxLayout()
+        self.setLayout(layout)
 
-def onButtonRelease(event):
-    global x,y,click
-    click = False
-    canvas.create_line(x,y,event.x,event.y)
-    canvas.pack()
+        self.pix = QPixmap(self.rect().size())
+        self.pix.fill(Qt.GlobalColor.white)
 
-def onButtonClick(event):
-    global x,y,click
-    click = True
-    x = event.x
-    y = event.y
+        self.begin, self.destination = QPoint(), QPoint()
 
-def onMotion(event):
-    global x, y, line,click
-    if click:
-        canvas.delete(line)
-        line = canvas.create_line(x,y,event.x,event.y)
-        canvas.pack()
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setPen(Qt.GlobalColor.black)
+        painter.drawPixmap(QPoint(), self.pix)
 
-def on_click(event):
-    global x,y,countQ
-    x = event.x
-    y = event.y
-    canvas.create_oval(event.x - 25, event.y - 25, event.x + 25, event.y + 25, width=1, fill="yellow")
-    Label(root, text="q" + str(countQ), bg="yellow", fg="black").place(x=event.x - 10, y=event.y - 10)
-    countQ += 1
+        if not self.begin.isNull() and not self.destination.isNull():
+            painter.drawLine(self.begin, self.destination)
 
-    canvas.pack()
+    def mousePressEvent(self, event):
+        if event.buttons() & Qt.MouseButton.LeftButton:
+            for item in self.states:
+                if (item["posx"] <= event.pos().x() <= item["posx"]+40) and (item["posy"] <= event.pos().y() <= item["posy"]+40):
+                    self.begin.setX(item["posx"] + 20)
+                    self.begin.setY(item["posy"] + 20)
+                    self.destination = self.begin
+                    self.update()
+                    break
 
-canvas.bind("<Motion>",onMotion)
-canvas.bind("<Button-3>", on_click)
-canvas.bind("<Button-1>", onButtonClick)
-canvas.bind("<ButtonRelease-1>", onButtonRelease)
-canvas.pack()
+        if event.button() == Qt.MouseButton.RightButton:
+            label = QLabel("q"+str(len(self.states)),self)
+            label.move(event.pos().x() - 20, event.pos().y() - 20)
+            label.resize(40, 40)
+            label.setStyleSheet("""border: 1px solid;
+                                        border-radius: 20px;background-color: yellow;color : black;""")
+            label.show()
+            self.states.append({"name":"q"+str(len(self.states)),"obj":self.label,"posx": event.pos().x() - 20,"posy": event.pos().y() - 20})
 
-root.mainloop()
+    def mouseMoveEvent(self, event):
+        if event.buttons() & Qt.MouseButton.LeftButton:
+            self.destination = event.pos()
+            self.update()
+
+    def mouseReleaseEvent(self, event):
+        if event.button() & Qt.MouseButton.LeftButton:
+            for item in self.states:
+                if (item["posx"] <= event.pos().x() <= item["posx"]+40) and (item["posy"] <= event.pos().y() <= item["posy"]+40):
+                    painter = QPainter(self.pix)
+                    self.destination.setX(item["posx"] + 20)
+                    self.destination.setY(item["posy"] + 20)
+                    painter.drawLine(self.begin, self.destination)
+
+                    break
+
+            self.begin, self.destination = QPoint(), QPoint()
+            self.update()
+
+
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+    myApp = MyApp()
+    myApp.show()
+
+    try:
+        sys.exit(app.exec())
+    except SystemExit:
+        print('Closing Window...')
